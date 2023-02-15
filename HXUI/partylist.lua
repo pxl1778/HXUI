@@ -19,7 +19,6 @@ local memberText = {};
 local partyList = {};
 
 local function UpdateTextVisibilityByMember(memIdx, visible)
-
     memberText[memIdx].hp:SetVisible(visible);
     memberText[memIdx].mp:SetVisible(visible);
     memberText[memIdx].tp:SetVisible(visible);
@@ -31,9 +30,23 @@ local function UpdateTextVisibility(visible)
     for i = 0, 5 do
         UpdateTextVisibilityByMember(i, visible);
     end
-    backgroundPrim.visible = visible;
+    backgroundPrim.visible = false;
     selectionPrim.visible = visible;
     arrowPrim.visible = visible;
+end
+
+local function GetMemberOffset()
+    local activeMembers = 6
+    for i = 0, 5 do 
+        local party = AshitaCore:GetMemoryManager():GetParty();
+        local player = AshitaCore:GetMemoryManager():GetPlayer();
+    
+        local playerTarget = AshitaCore:GetMemoryManager():GetTarget();
+        if (player == nil or party == nil or party:GetMemberIsActive(i) == 0) then
+            activeMembers = activeMembers - 1;
+        end
+    end
+    return 6 - activeMembers
 end
 
 local function GetMemberInformation(memIdx)
@@ -62,6 +75,8 @@ local function GetMemberInformation(memIdx)
         memberInfo.tp = party:GetMemberTP(memIdx);
         memberInfo.job = party:GetMemberMainJob(memIdx);
         memberInfo.level = party:GetMemberMainJobLevel(memIdx);
+        memberInfo.subJob = party:GetMemberSubJob(memIdx);
+        memberInfo.subJobLevel = party:GetMemberSubJobLevel(memIdx);
         memberInfo.serverid = party:GetMemberServerId(memIdx);
         if (playerTarget ~= nil) then
             local t1, t2 = GetTargets();
@@ -101,14 +116,23 @@ local function GetMemberInformation(memIdx)
 end
 
 local function DrawMember(memIdx, settings, userSettings)
-
     local memInfo = GetMemberInformation(memIdx);
     local playerTarget = AshitaCore:GetMemoryManager():GetTarget();
     if (memInfo == nil or playerTarget == nil) then
+        if userSettings.partyListReversed then
+            local memOffset = 6 - GetMemberOffset();
+            memIdx = memIdx - memOffset;
+            local hpStartX, hpStartY = imgui.GetCursorScreenPos();
+            imgui.SetCursorScreenPos({hpStartX, hpStartY + 60});
+        end
         UpdateTextVisibilityByMember(memIdx, false);
         return;
     end
 
+    if userSettings.partyListReversed then
+        local memOffset = GetMemberOffset();
+        memIdx = memOffset + memIdx;
+    end
     local subTargetActive = GetSubTargetActive();
     local nameSize = SIZE.new();
     local hpSize = SIZE.new();
@@ -139,12 +163,12 @@ local function DrawMember(memIdx, settings, userSettings)
 
     -- Draw the job icon in the FFXIV theme before we draw anything else
     local namePosX = hpStartX + settings.nameTextOffsetX;
-    if (memInfo.inzone) then
-        imgui.SetCursorScreenPos({namePosX, hpStartY - settings.iconSize - settings.nameTextOffsetY});
-        namePosX = namePosX + settings.iconSize;
+    if (memInfo.inzone and userSettings.showPartyListJobIcon) then
+        imgui.SetCursorScreenPos({namePosX, hpStartY - settings.jobIconSize - settings.nameTextOffsetY});
+        namePosX = namePosX + settings.jobIconSize;
         local jobIcon = statusHandler.GetJobIcon(memInfo.job);
         if (jobIcon ~= nil) then
-            imgui.Image(jobIcon, {settings.iconSize, settings.iconSize});
+            imgui.Image(jobIcon, {settings.jobIconSize, settings.jobIconSize});
         end
         imgui.SetCursorScreenPos({hpStartX, hpStartY});
     end
@@ -174,7 +198,17 @@ local function DrawMember(memIdx, settings, userSettings)
     memberText[memIdx].name:SetColor(0xFFFFFFFF);
     memberText[memIdx].name:SetPositionX(namePosX);
     memberText[memIdx].name:SetPositionY(hpStartY - nameSize.cy - settings.nameTextOffsetY);
-    memberText[memIdx].name:SetText(tostring(memInfo.name));
+    local jobString = statusHandler.GetJobName(memInfo.job);
+    local jobName = ""
+    if (jobString ~= nil) then
+        local subJobString = statusHandler.GetJobName(memInfo.subJob);
+        local subJobName = ""
+        if subJobString ~= nil then
+            subJobName = "/" .. subJobString .. memInfo.subJobLevel
+        end
+        jobName = " " .. jobString .. memInfo.level .. subJobName
+    end
+    memberText[memIdx].name:SetText(tostring(memInfo.name) .. jobName);
 
     -- Draw the MP bar
     if (memInfo.inzone) then
@@ -357,20 +391,35 @@ partyList.DrawWindow = function(settings, userSettings)
         memberText[0].name:GetTextSize(nameSize);
         memberText[0].hp:GetTextSize(hpSize);
         imgui.Dummy({0, settings.nameTextOffsetY + nameSize.cy});
+        local memOffset = 0;
+        if userSettings.partyListReversed then
+            memOffset = GetMemberOffset();
+        end
         if (fullMenuSizeX ~= nil and fullMenuSizeY ~= nil) then
-            backgroundPrim.visible = true;
+            local unitSize = 60;
+            backgroundPrim.visible = false;
             local imguiPosX, imguiPosY = imgui.GetWindowPos();
             backgroundPrim.position_x = imguiPosX - settings.backgroundPaddingX1;
-            backgroundPrim.position_y = imguiPosY - settings.backgroundPaddingY1;
+            backgroundPrim.position_y = imguiPosY + (memOffset * unitSize) - settings.backgroundPaddingY1;
             backgroundPrim.scale_x = (fullMenuSizeX + settings.backgroundPaddingX1 + settings.backgroundPaddingX2) / 280;
-            backgroundPrim.scale_y = (fullMenuSizeY - settings.entrySpacing + settings.backgroundPaddingY1 + settings.backgroundPaddingY2 - (settings.nameTextOffsetY + nameSize.cy)) / 384;
+            backgroundPrim.scale_y = (fullMenuSizeY - (memOffset * unitSize) - settings.entrySpacing + settings.backgroundPaddingY1 + settings.backgroundPaddingY2 - (settings.nameTextOffsetY + nameSize.cy)) / 384;
         end
         partyTargeted = false;
         partySubTargeted = false;
         UpdateTextVisibility(true);
-        for i = 0, 5 do
-            DrawMember(i, settings, userSettings);
-        end
+        -- if userSettings.partyListReversed then
+        --     for i = 5, memOffset do
+        --         DrawMember(i, settings, userSettings);
+        --     end
+        --     local partyCount = 6 - memOffset
+        --     for i = 0, partyCount - 1 do
+        --         DrawMember(i, settings, userSettings);
+        --     end
+        -- else
+            for i = 0, 5 do
+                DrawMember(i, settings, userSettings);
+            end
+        -- end
         if (partyTargeted == false) then
             selectionPrim.visible = false;
         end

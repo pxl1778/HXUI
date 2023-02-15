@@ -244,4 +244,19 @@ statusHandler.GetJobIcon = function(jobIdx)
     return tonumber(ffi.cast("uint32_t", jobIcons[jobStr].image));
 end
 
+statusHandler.GetJobName = function(jobIdx)
+
+    if (jobIdx == nil or jobIdx == 0 or jobIdx == -1) then
+        return nil;
+    end
+
+    local jobStr = AshitaCore:GetResourceManager():GetString("jobs.names_abbr", jobIdx);
+
+    if jobStr == -1 then
+        return nil
+    end
+
+    return jobStr
+end
+
 return statusHandler;

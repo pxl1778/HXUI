@@ -1,5 +1,6 @@
 require ("common");
 require('helpers');
+local settings = require('settings');
 local imgui = require("imgui");
 
 local config = {};
@@ -114,6 +115,10 @@ config.DrawWindow = function(us)
                 us.showPartyListWhenSolo = not us.showPartyListWhenSolo;
                 UpdateSettings();
             end
+            if (imgui.Checkbox(' Reverse Party List Direction', { us.partyListReversed })) then
+                us.partyListReversed = not us.partyListReversed;
+                UpdateSettings();
+            end
             local scaleX = { us.partyListScaleX };
             if (imgui.SliderFloat('Scale X', scaleX, 0.1, 3.0, '%.1f')) then
                 us.partyListScaleX = scaleX[1];
@@ -146,6 +151,15 @@ config.DrawWindow = function(us)
             local buffScale = { us.partyListBuffScale };
             if (imgui.SliderFloat('Buff Scale', buffScale, 0.1, 3.0, '%.1f')) then
                 us.partyListBuffScale = buffScale[1];
+                UpdateSettings();
+            end
+            if (imgui.Checkbox(' Show Job Icon', { us.showPartyListJobIcon })) then
+                us.showPartyListJobIcon = not us.showPartyListJobIcon;
+                UpdateSettings();
+            end
+            local jobIconScale = { us.partyListJobIconScale };
+            if (imgui.SliderFloat('Job Icon Scale', jobIconScale, 0.1, 3.0, '%.1f')) then
+                us.partyListJobIconScale = jobIconScale[1];
                 UpdateSettings();
             end
             local fontOffset = { us.partyListFontOffset };

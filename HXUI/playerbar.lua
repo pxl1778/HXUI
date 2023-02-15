@@ -87,13 +87,16 @@ playerbar.DrawWindow = function(settings, userSettings)
 		local hpBarColor;
 		if (SelfHPPercent < .25) then 
 			hpNameColor = 0xFFFF0000;
-			hpBarColor = { 1, 0, 0, 1};
+			--hpBarColor = { 1, 0, 0, 1};
+			hpBarColor = { 1, 0.5, 0.5, 1};
 		elseif (SelfHPPercent < .50) then;
 			hpNameColor = 0xFFFFA500;
-			hpBarColor = { 1, 0.65, 0, 1};
+			--hpBarColor = { 1, 0.65, 0, 1};
+			hpBarColor = { 1, 0.5, 0.5, 1};
 		elseif (SelfHPPercent < .75) then
 			hpNameColor = 0xFFFFFF00;
-			hpBarColor = { 1, 1, 0, 1};
+			--hpBarColor = { 1, 1, 0, 1};
+			hpBarColor = { 1, 0.5, 0.5, 1};
 		else
 			hpNameColor = 0xFFFFFFFF;
 			hpBarColor = { 1, 0.5, 0.5, 1};

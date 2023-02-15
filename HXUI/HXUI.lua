@@ -54,6 +54,8 @@ T{
 	barRoundness = 6.0,
 
 	showPartyListWhenSolo = false,
+	showPartyListJobIcon = true,
+	partyListReversed = false,
 	maxEnemyListEntries = 8,
 	showTargetBarPercent = true,
 
@@ -84,6 +86,7 @@ T{
 	partyListScaleX = 1,
 	partyListScaleY = 1,
 	partyListBuffScale = 1,
+	partyListJobIconScale = 1,
 	partyListFontOffset = 0,
 	partyListStatusTheme = 0;
 	partyListTheme = 0; -- 0: HorizonXI, 1: XIV1.0, 2: XIV
@@ -299,6 +302,7 @@ T{
 		arrowSize = 1;
 
 		iconSize = 20,
+		jobIconSize = 28,
 		maxIconColumns = 6,
 		buffOffset = 10,
 		xivBuffOffsetY = 5;
@@ -458,6 +462,7 @@ local function UpdateUserSettings()
 	adjustedSettings.partyListSettings.cursorPaddingY1 = ns.partyListSettings.cursorPaddingY1 * us.partyListScaleY;
 	adjustedSettings.partyListSettings.cursorPaddingY2 = ns.partyListSettings.cursorPaddingY2 * us.partyListScaleY;
 	adjustedSettings.partyListSettings.iconSize = ns.partyListSettings.iconSize * us.partyListBuffScale;
+	adjustedSettings.partyListSettings.jobIconSize = ns.partyListSettings.jobIconSize * us.partyListJobIconScale;
 
 	-- Player Bar
 	adjustedSettings.playerBarSettings.barWidth = ns.playerBarSettings.barWidth * us.playerBarScaleX;
