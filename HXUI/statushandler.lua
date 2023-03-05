@@ -310,7 +310,6 @@ statusHandler.GetJobIcon = function(jobIdx)
 end
 
 statusHandler.GetJobName = function(jobIdx)
-
     if (jobIdx == nil or jobIdx == 0 or jobIdx == -1) then
         return nil;
     end
@@ -321,7 +320,7 @@ statusHandler.GetJobName = function(jobIdx)
         return nil
     end
 
-    return jobString
+    return jobStr
 end
 
 --Call with incoming packet 0x076

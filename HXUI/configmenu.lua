@@ -204,11 +204,11 @@ config.DrawWindow = function(us)
                 gConfig.showPartyListBookends = not gConfig.showPartyListBookends;
                 UpdateSettings();
             end
-            if (imgui.Checkbox(' Reverse Party List Direction', { us.partyListReversed })) then
-                us.partyListReversed = not us.partyListReversed;
+            if (imgui.Checkbox(' Reverse Party List Direction', { gConfig.partyListReversed })) then
+                gConfig.partyListReversed = not gConfig.partyListReversed;
                 UpdateSettings();
             end
-            local scaleX = { us.partyListScaleX };
+            local scaleX = { gConfig.partyListScaleX };
             if (imgui.Checkbox('Show When Solo', { gConfig.showPartyListWhenSolo })) then
                 gConfig.showPartyListWhenSolo = not gConfig.showPartyListWhenSolo;
                 UpdateSettings();
@@ -298,18 +298,19 @@ config.DrawWindow = function(us)
                 gConfig.partyListBuffScale = buffScale[1];
                 UpdateSettings();
             end
-            if (imgui.Checkbox(' Show Job Icon', { us.showPartyListJobIcon })) then
-                us.showPartyListJobIcon = not us.showPartyListJobIcon;
+            if (imgui.Checkbox(' Show Job Icon', { gConfig.showPartyListJobIcon })) then
+                gConfig.showPartyListJobIcon = not gConfig.showPartyListJobIcon;
                 UpdateSettings();
             end
-            local jobIconScale = { us.partyListJobIconScale };
+            local jobIconScale = { gConfig.partyListJobIconScale };
             if (imgui.SliderFloat('Job Icon Scale', jobIconScale, 0.1, 3.0, '%.1f')) then
-                us.partyListJobIconScale = jobIconScale[1];
+                gConfig.partyListJobIconScale = jobIconScale[1];
                 UpdateSettings();
             end
-            local fontOffset = { us.partyListFontOffset };
+            local fontOffset = { gConfig.partyListFontOffset };
             if (imgui.SliderInt('Font Offset', fontOffset, -5, 10)) then
-                us.partyListFontOffset = fontOffset[1];
+                gConfig.partyListFontOffset = fontOffset[1];
+            end
             local fontOffset = { gConfig.partyListFontOffset };
             if (imgui.SliderInt('Font Scale', fontOffset, -5, 10)) then
                 gConfig.partyListFontOffset = fontOffset[1];

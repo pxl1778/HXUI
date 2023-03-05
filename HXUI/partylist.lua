@@ -16,6 +16,7 @@ local arrowPrim;
 local partyTargeted;
 local partySubTargeted;
 local memberText = {};
+local memberHeight = 0;
 
 local borderConfig = {1, '#243e58'};
 
@@ -33,7 +34,7 @@ local function UpdateTextVisibility(visible)
     for i = 0, 5 do
         UpdateTextVisibilityByMember(i, visible);
     end
-    backgroundPrim.visible = false;
+    backgroundPrim.visible = visible;
     selectionPrim.visible = visible;
     arrowPrim.visible = visible;
 end
@@ -118,23 +119,12 @@ local function GetMemberInformation(memIdx)
     return memberInfo;
 end
 
-local function DrawMember(memIdx, settings, userSettings)
+local function DrawMember(memIdx, settings)
     local memInfo = GetMemberInformation(memIdx);
     local playerTarget = AshitaCore:GetMemoryManager():GetTarget();
     if (memInfo == nil or playerTarget == nil) then
-        if userSettings.partyListReversed then
-            local memOffset = 6 - GetMemberOffset();
-            memIdx = memIdx - memOffset;
-            local hpStartX, hpStartY = imgui.GetCursorScreenPos();
-            imgui.SetCursorScreenPos({hpStartX, hpStartY + 60});
-        end
         UpdateTextVisibilityByMember(memIdx, false);
         return;
-    end
-
-    if userSettings.partyListReversed then
-        local memOffset = GetMemberOffset();
-        memIdx = memOffset + memIdx;
     end
     local subTargetActive = GetSubTargetActive();
     local nameSize = SIZE.new();
@@ -154,7 +144,7 @@ local function DrawMember(memIdx, settings, userSettings)
 
     -- Draw the job icon in the FFXIV theme before we draw anything else
     local namePosX = hpStartX + settings.nameTextOffsetX;
-    if (memInfo.inzone and userSettings.showPartyListJobIcon) then
+    if (memInfo.inzone and gConfig.showPartyListJobIcon) then
         imgui.SetCursorScreenPos({namePosX, hpStartY - settings.jobIconSize - settings.nameTextOffsetY});
         namePosX = namePosX + settings.jobIconSize;
         local jobIcon = statusHandler.GetJobIcon(memInfo.job);
@@ -367,6 +357,8 @@ local function DrawMember(memIdx, settings, userSettings)
     else
         imgui.Dummy({0, settings.entrySpacing + settings.nameTextOffsetY + offsetSize});
     end
+    hpEndX, hpEndY = imgui.GetCursorScreenPos();
+    memberHeight = hpEndY - hpStartY;
 end
 
 partyList.DrawWindow = function(settings)
@@ -394,32 +386,28 @@ partyList.DrawWindow = function(settings)
     imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, {settings.barSpacing,0});
     if (imgui.Begin('PartyList', true, windowFlags)) then
         local nameSize = SIZE.new();
-        memberText[0].name:GetTextSize(nameSize);
-        memberText[0].hp:GetTextSize(hpSize);
         imgui.Dummy({0, settings.nameTextOffsetY + nameSize.cy});
-        local memOffset = 0;
-        if userSettings.partyListReversed then
-            memOffset = GetMemberOffset();
-        end
         local offsetSize = nameSize.cy > settings.iconSize and nameSize.cy or settings.iconSize;
         imgui.Dummy({0, settings.nameTextOffsetY + offsetSize});
         if (fullMenuSizeX ~= nil and fullMenuSizeY ~= nil) then
-            local unitSize = 60;
-            backgroundPrim.visible = false;
+            backgroundPrim.visible = true;
             local imguiPosX, imguiPosY = imgui.GetWindowPos();
             backgroundPrim.position_x = imguiPosX - settings.backgroundPaddingX1;
-            -- backgroundPrim.position_y = imguiPosY + (memOffset * unitSize) - settings.backgroundPaddingY1;
-            -- backgroundPrim.scale_x = (fullMenuSizeX + settings.backgroundPaddingX1 + settings.backgroundPaddingX2) / 280;
-            -- backgroundPrim.scale_y = (fullMenuSizeY - (memOffset * unitSize) - settings.entrySpacing + settings.backgroundPaddingY1 + settings.backgroundPaddingY2 - (settings.nameTextOffsetY + nameSize.cy)) / 384;
-            backgroundPrim.position_y = imguiPosY - settings.backgroundPaddingY1;
+            local heightOffset = (GetMemberOffset() + 1) * memberHeight;
+            backgroundPrim.position_y = imguiPosY - settings.backgroundPaddingY1 + heightOffset;
             backgroundPrim.scale_x = (fullMenuSizeX + settings.backgroundPaddingX1 + settings.backgroundPaddingX2) / 512;
-            backgroundPrim.scale_y = (fullMenuSizeY - settings.entrySpacing + settings.backgroundPaddingY1 + settings.backgroundPaddingY2 - (settings.nameTextOffsetY + offsetSize)) / 512;
+            backgroundPrim.scale_y = (fullMenuSizeY - heightOffset - settings.entrySpacing + settings.backgroundPaddingY1 + settings.backgroundPaddingY2 - (settings.nameTextOffsetY + offsetSize)) / 512;
         end
         partyTargeted = false;
         partySubTargeted = false;
         UpdateTextVisibility(true);
+        if gConfig.partyListReversed then
+            for i = 0, GetMemberOffset() do
+                imgui.Dummy({0, memberHeight});
+            end
+        end
         for i = 0, 5 do
-            DrawMember(i, settings, userSettings);
+            DrawMember(i, settings, gConfig);
         end
         if (partyTargeted == false) then
             selectionPrim.visible = false;
