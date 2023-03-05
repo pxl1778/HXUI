@@ -1,6 +1,7 @@
 require('common');
 local imgui = require('imgui');
 local fonts = require('fonts');
+local progressbar = require('progressbar');
 
 local jobText;
 local expText;
@@ -18,7 +19,7 @@ end
 * event: d3d_present
 * desc : Event called when the Direct3D device is presenting a scene.
 --]]
-expbar.DrawWindow = function(settings, userSettings)
+expbar.DrawWindow = function(settings)
     -- Obtain the player entity..
     local player    = AshitaCore:GetMemoryManager():GetPlayer();
 
@@ -40,15 +41,21 @@ expbar.DrawWindow = function(settings, userSettings)
 	end
 	
     imgui.SetNextWindowSize({ settings.barWidth, -1, }, ImGuiCond_Always);
-		
-    if (imgui.Begin('ExpBar', true, bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_NoNav, ImGuiWindowFlags_NoBackground))) then
+	local windowFlags = bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_NoNav, ImGuiWindowFlags_NoBackground, ImGuiWindowFlags_NoBringToFrontOnFocus);
+	if (gConfig.lockPositions) then
+		windowFlags = bit.bor(windowFlags, ImGuiWindowFlags_NoMove);
+	end
+    if (imgui.Begin('ExpBar', true, windowFlags)) then
 
 		-- Draw HP Bar (two bars to fake animation
 		local expPercent = currentExp / totalExp;
 		local startX, startY = imgui.GetCursorScreenPos();
-		imgui.PushStyleColor(ImGuiCol_PlotHistogram, {1, 1, .5, 1});
-		imgui.ProgressBar(expPercent, { -1, settings.barHeight }, '');
-		imgui.PopStyleColor(1);
+		-- imgui.PushStyleColor(ImGuiCol_PlotHistogram, {1, 1, .5, 1});
+		-- imgui.ProgressBar(expPercent, { -1, settings.barHeight }, '');
+		-- imgui.PopStyleColor(1);
+
+		progressbar.ProgressBar({{expPercent, {'#c39040', '#e9c466'}}}, {-1, settings.barHeight}, {decorate = gConfig.showExpBarBookends});
+
 		imgui.SameLine();
 		
 		-- Update our text objects

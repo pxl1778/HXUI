@@ -4,6 +4,7 @@ local fonts = require('fonts');
 local primitives = require('primitives');
 local statusHandler = require('statushandler');
 local buffTable = require('bufftable');
+local progressbar = require('progressbar');
 
 local fullMenuSizeX;
 local fullMenuSizeY;
@@ -15,6 +16,8 @@ local arrowPrim;
 local partyTargeted;
 local partySubTargeted;
 local memberText = {};
+
+local borderConfig = {1, '#243e58'};
 
 local partyList = {};
 
@@ -140,23 +143,11 @@ local function DrawMember(memIdx, settings, userSettings)
     memberText[memIdx].hp:GetTextSize(hpSize);
 
     -- Get the hp color for bars and text
-    local hpNameColor;
-    local hpBarColor;
-    if (memInfo.hpp < .25) then 
-        hpNameColor = 0xFFFF0000;
-        hpBarColor = { 1, 0, 0, 1};
-    elseif (memInfo.hpp < .50) then;
-        hpNameColor = 0xFFFFA500;
-        hpBarColor = { 1, 0.65, 0, 1};
-    elseif (memInfo.hpp < .75) then
-        hpNameColor = 0xFFFFFF00;
-        hpBarColor = { 1, 1, 0, 1};
-    else
-        hpNameColor = 0xFFFFFFFF;
-        hpBarColor = { 1, 0.5, 0.5, 1};
-    end
+    local hpNameColor, hpGradient = GetHpColors(memInfo.hpp);
 
-    local allBarsLengths = settings.hpBarWidth + settings.mpBarWidth + settings.tpBarWidth + (settings.barSpacing * 2) + (imgui.GetStyle().FramePadding.x * 4);
+    local bgGradientOverride = {'#000813', '#000813'};
+
+    local allBarsLengths = settings.hpBarWidth + settings.mpBarWidth + settings.tpBarWidth + (imgui.GetStyle().FramePadding.x * 2) + (imgui.GetStyle().ItemSpacing.x * 2);
 
 
     local hpStartX, hpStartY = imgui.GetCursorScreenPos();
@@ -172,6 +163,7 @@ local function DrawMember(memIdx, settings, userSettings)
         end
         imgui.SetCursorScreenPos({hpStartX, hpStartY});
     end
+    imgui.SetCursorScreenPos({hpStartX, hpStartY});
 
     -- Update the hp text
     memberText[memIdx].hp:SetColor(hpNameColor);
@@ -180,14 +172,11 @@ local function DrawMember(memIdx, settings, userSettings)
     memberText[memIdx].hp:SetText(tostring(memInfo.hp));
 
     -- Draw the HP bar
-    memberText[memIdx].hp:SetColor(hpNameColor);
-    imgui.PushStyleColor(ImGuiCol_PlotHistogram, hpBarColor);
     if (memInfo.inzone) then
-        imgui.ProgressBar(memInfo.hpp, { settings.hpBarWidth, settings.barHeight }, '');
+        progressbar.ProgressBar({{memInfo.hpp, hpGradient}}, {settings.hpBarWidth, settings.barHeight}, {borderConfig=borderConfig, backgroundGradientOverride=bgGradientOverride, decorate = gConfig.showPartyListBookends});
     else
         imgui.ProgressBar(0, { allBarsLengths, settings.barHeight + hpSize.cy + settings.hpTextOffsetY}, AshitaCore:GetResourceManager():GetString("zones.names", memInfo.zone));
     end
-    imgui.PopStyleColor(1);
 
     -- Draw the leader icon
     if (memInfo.leader) then
@@ -210,64 +199,62 @@ local function DrawMember(memIdx, settings, userSettings)
     end
     memberText[memIdx].name:SetText(tostring(memInfo.name) .. jobName);
 
+    local nameSize = SIZE.new();
+    memberText[0].name:GetTextSize(nameSize);
+    local offsetSize = nameSize.cy > settings.iconSize and nameSize.cy or settings.iconSize;
+
     -- Draw the MP bar
     if (memInfo.inzone) then
         imgui.SameLine();
         local mpStartX, mpStartY; 
-        imgui.SetCursorPosX(imgui.GetCursorPosX() + settings.barSpacing);
+        imgui.SetCursorPosX(imgui.GetCursorPosX());
         mpStartX, mpStartY = imgui.GetCursorScreenPos();
-        imgui.PushStyleColor(ImGuiCol_PlotHistogram, { 0.9, 1.0, 0.5, 1.0});
-        imgui.ProgressBar(memInfo.mpp, {  settings.mpBarWidth, settings.barHeight }, '');
-        imgui.PopStyleColor(1);
+        progressbar.ProgressBar({{memInfo.mpp, {'#9abb5a', '#bfe07d'}}}, {settings.mpBarWidth, settings.barHeight}, {borderConfig=borderConfig, backgroundGradientOverride=bgGradientOverride, decorate = gConfig.showPartyListBookends});
         imgui.SameLine();
 
         -- Draw the TP bar
         local tpStartX, tpStartY;
-        imgui.SetCursorPosX(imgui.GetCursorPosX() + settings.barSpacing);
+        imgui.SetCursorPosX(imgui.GetCursorPosX());
         tpStartX, tpStartY = imgui.GetCursorScreenPos();
-        local tpX = imgui.GetCursorPosX();
-        if (memInfo.tp > 1000) then
-            imgui.PushStyleColor(ImGuiCol_PlotHistogram, { 0.2, 0.4, 1.0, 1.0});
-        else
-            imgui.PushStyleColor(ImGuiCol_PlotHistogram, { 0.3, 0.7, 1.0, 1.0});
-        end
-        imgui.ProgressBar(memInfo.tp / 1000, { settings.tpBarWidth, settings.barHeight }, '');
-        imgui.PopStyleColor(1);
-        if (memInfo.tp > 1000) then
-            imgui.SameLine();
-            imgui.SetCursorPosX(tpX);
-            imgui.PushStyleColor(ImGuiCol_PlotHistogram, { 0.3, 0.7, 1.0, 1.0});
-            imgui.ProgressBar((memInfo.tp - 1000) / 2000, { settings.tpBarWidth, settings.barHeight * 3/5 }, '');
-            imgui.PopStyleColor(1);
-        end
+
+		local tpGradient = {'#3898ce', '#78c4ee'};
+		local tpOverlayGradient = {'#0078CC', '#0078CC'};
+		local mainPercent;
+		local tpOverlay;
+		
+		if (memInfo.tp >= 1000) then
+			mainPercent = (memInfo.tp - 1000) / 2000;
+			tpOverlay = {{1, tpOverlayGradient}, math.ceil(settings.barHeight * 2/7), 1};
+		else
+			mainPercent = memInfo.tp / 1000;
+		end
+		
+		progressbar.ProgressBar({{mainPercent, tpGradient}}, {settings.tpBarWidth, settings.barHeight}, {overlayBar=tpOverlay, borderConfig=borderConfig, backgroundGradientOverride=bgGradientOverride, decorate = gConfig.showPartyListBookends});
 
         -- Update the mp text
-        if (memInfo.mpp >= 1) then 
-            memberText[memIdx].mp:SetColor(0xFFCFFBCF);
-        else
-            memberText[memIdx].mp:SetColor(0xFFFFFFFF);
-        end
+        memberText[memIdx].mp:SetColor(gAdjustedSettings.mpColor);
         memberText[memIdx].mp:SetPositionX(mpStartX + settings.mpBarWidth + settings.mpTextOffsetX);
         memberText[memIdx].mp:SetPositionY(mpStartY + settings.barHeight + settings.mpTextOffsetY);
         memberText[memIdx].mp:SetText(tostring(memInfo.mp));
 
         -- Update the tp text
-        if (memInfo.tp > 1000) then 
-            memberText[memIdx].tp:SetColor(0xFF5b97cf);
+        if (memInfo.tp >= 1000) then 
+            memberText[memIdx].tp:SetColor(gAdjustedSettings.tpFullColor);
         else
-            memberText[memIdx].tp:SetColor(0xFFD1EDF2);
+            memberText[memIdx].tp:SetColor(gAdjustedSettings.tpEmptyColor);
         end	
         memberText[memIdx].tp:SetPositionX(tpStartX + settings.tpBarWidth + settings.tpTextOffsetX);
         memberText[memIdx].tp:SetPositionY(tpStartY + settings.barHeight + settings.tpTextOffsetY);
         memberText[memIdx].tp:SetText(tostring(memInfo.tp));
 
         -- Draw targeted
+        local entrySize = hpSize.cy + offsetSize + settings.hpTextOffsetY + settings.barHeight + settings.cursorPaddingY1 + settings.cursorPaddingY2;
         if (memInfo.targeted == true) then
             selectionPrim.visible = true;
             selectionPrim.position_x = hpStartX - settings.cursorPaddingX1;
-            selectionPrim.position_y = hpStartY - nameSize.cy - settings.nameTextOffsetY - settings.cursorPaddingY1;
-            selectionPrim.scale_x = (allBarsLengths + settings.cursorPaddingX1 + settings.cursorPaddingX2) / 280;
-            selectionPrim.scale_y = (hpSize.cy + nameSize.cy + settings.hpTextOffsetY + settings.nameTextOffsetY + settings.barHeight + settings.cursorPaddingY1 + settings.cursorPaddingY2) / 66;
+            selectionPrim.position_y = hpStartY - offsetSize - settings.cursorPaddingY1;
+            selectionPrim.scale_x = (allBarsLengths + settings.cursorPaddingX1 + settings.cursorPaddingX2) / 346;
+            selectionPrim.scale_y = entrySize / 108;
             partyTargeted = true;
         end
 
@@ -275,17 +262,24 @@ local function DrawMember(memIdx, settings, userSettings)
         if ((memInfo.targeted == true and not subTargetActive) or memInfo.subTargeted) then
             arrowPrim.visible = true;
             local newArrowX =  memberText[memIdx].name:GetPositionX() - arrowPrim:GetWidth();
-            newArrowX = newArrowX - settings.iconSize;
+            if (jobIcon ~= nil) then
+                newArrowX = newArrowX - jobIconSize;
+            end
             arrowPrim.position_x = newArrowX;
-            arrowPrim.position_y = memberText[memIdx].name:GetPositionY();
+            arrowPrim.position_y = (hpStartY - offsetSize - settings.cursorPaddingY1) + (entrySize/2) - arrowPrim:GetHeight()/2;
             arrowPrim.scale_x = settings.arrowSize;
             arrowPrim.scale_y = settings.arrowSize;
+            if (subTargetActive) then
+                arrowPrim.color = settings.subtargetArrowTint;
+            else
+                arrowPrim.color = 0xFFFFFFFF;
+            end
             partySubTargeted = true;
         end
 
         -- Draw the different party list buff / debuff themes
         if (memInfo.buffs ~= nil and #memInfo.buffs > 0) then
-            if (userSettings.partyListStatusTheme == 0) then
+            if (gConfig.partyListStatusTheme == 0 or gConfig.partyListStatusTheme == 1) then
                 local buffs = {};
                 local debuffs = {};
                 for i = 0, #memInfo.buffs do
@@ -297,26 +291,32 @@ local function DrawMember(memIdx, settings, userSettings)
                 end
 
                 if (buffs ~= nil and #buffs > 0) then
-                    if (buffWindowX[memIdx] ~= nil) then
-                        imgui.SetNextWindowPos({hpStartX - buffWindowX[memIdx] - settings.buffOffset , memberText[memIdx].name:GetPositionY() - settings.iconSize/2});
+                    if (gConfig.partyListStatusTheme == 0 and buffWindowX[memIdx] ~= nil) then
+                        imgui.SetNextWindowPos({hpStartX - buffWindowX[memIdx] - settings.buffOffset , hpStartY - settings.iconSize*1.2});
+                    elseif (gConfig.partyListStatusTheme == 1 and fullMenuSizeX ~= nil) then
+                        local thisPosX, _ = imgui.GetWindowPos();
+                        imgui.SetNextWindowPos({thisPosX + fullMenuSizeX, hpStartY - settings.iconSize*1.2});
                     end
                     if (imgui.Begin('PlayerBuffs'..memIdx, true, bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_NoNav, ImGuiWindowFlags_NoBackground, ImGuiWindowFlags_NoSavedSettings))) then
-                        imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, {5, 1});
+                        imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, {3, 1});
                         DrawStatusIcons(buffs, settings.iconSize, 32, 1, true);
                         imgui.PopStyleVar(1);
                     end
-                    local buffWindowSizeX, buffWindowSizeY = imgui.GetWindowSize();
+                    local buffWindowSizeX, _ = imgui.GetWindowSize();
                     buffWindowX[memIdx] = buffWindowSizeX;
     
                     imgui.End();
                 end
 
                 if (debuffs ~= nil and #debuffs > 0) then
-                    if (debuffWindowX[memIdx] ~= nil) then
-                        imgui.SetNextWindowPos({hpStartX - debuffWindowX[memIdx] - settings.buffOffset , memberText[memIdx].name:GetPositionY() + settings.iconSize});
+                    if (gConfig.partyListStatusTheme == 0 and debuffWindowX[memIdx] ~= nil) then
+                        imgui.SetNextWindowPos({hpStartX - debuffWindowX[memIdx] - settings.buffOffset , hpStartY});
+                    elseif (gConfig.partyListStatusTheme == 1 and fullMenuSizeX ~= nil) then
+                        local thisPosX, _ = imgui.GetWindowPos();
+                        imgui.SetNextWindowPos({thisPosX + fullMenuSizeX , hpStartY});
                     end
                     if (imgui.Begin('PlayerDebuffs'..memIdx, true, bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_NoNav, ImGuiWindowFlags_NoBackground, ImGuiWindowFlags_NoSavedSettings))) then
-                        imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, {5, 1});
+                        imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, {3, 1});
                         DrawStatusIcons(debuffs, settings.iconSize, 32, 1, true);
                         imgui.PopStyleVar(1);
                     end
@@ -324,29 +324,29 @@ local function DrawMember(memIdx, settings, userSettings)
                     debuffWindowX[memIdx] = buffWindowSizeX;
                     imgui.End();
                 end
-            elseif (userSettings.partyListStatusTheme == 1) then
+            elseif (gConfig.partyListStatusTheme == 2) then
                 -- Draw FFXIV theme
                 local resetX, resetY = imgui.GetCursorScreenPos();
-                imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 0, 0} );
+                imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0} );
                 imgui.SetNextWindowPos({mpStartX, mpStartY - settings.iconSize - settings.xivBuffOffsetY})
                 if (imgui.Begin('XIVStatus'..memIdx, true, bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_NoNav, ImGuiWindowFlags_NoBackground, ImGuiWindowFlags_NoSavedSettings))) then
-                    imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, {1, 1});
+                    imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 0});
                     DrawStatusIcons(memInfo.buffs, settings.iconSize, 32, 1);
                     imgui.PopStyleVar(1);
                 end
                 imgui.PopStyleVar(1);
                 imgui.End();
                 imgui.SetCursorScreenPos({resetX, resetY});
-            else
+            elseif (gConfig.partyListStatusTheme == 3) then
                 if (buffWindowX[memIdx] ~= nil) then
                     imgui.SetNextWindowPos({hpStartX - buffWindowX[memIdx] - settings.buffOffset , memberText[memIdx].name:GetPositionY() - settings.iconSize/2});
                 end
                 if (imgui.Begin('PlayerBuffs'..memIdx, true, bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_NoNav, ImGuiWindowFlags_NoBackground, ImGuiWindowFlags_NoSavedSettings))) then
-                    imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, {1, 3});
+                    imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 3});
                     DrawStatusIcons(memInfo.buffs, settings.iconSize, 7, 3);
                     imgui.PopStyleVar(1);
                 end
-                local buffWindowSizeX, buffWindowSizeY = imgui.GetWindowSize();
+                local buffWindowSizeX, _ = imgui.GetWindowSize();
                 buffWindowX[memIdx] = buffWindowSizeX;
 
                 imgui.End();
@@ -363,13 +363,13 @@ local function DrawMember(memIdx, settings, userSettings)
     memberText[memIdx].tp:SetVisible(memInfo.inzone);
 
     if (memInfo.inzone) then
-        imgui.Dummy({0, settings.entrySpacing + hpSize.cy + settings.hpTextOffsetY + settings.nameTextOffsetY + nameSize.cy});
+        imgui.Dummy({0, settings.entrySpacing + hpSize.cy + settings.hpTextOffsetY + settings.nameTextOffsetY + offsetSize});
     else
-        imgui.Dummy({0, settings.entrySpacing + settings.nameTextOffsetY + nameSize.cy});
+        imgui.Dummy({0, settings.entrySpacing + settings.nameTextOffsetY + offsetSize});
     end
 end
 
-partyList.DrawWindow = function(settings, userSettings)
+partyList.DrawWindow = function(settings)
 
     -- Obtain the player entity..
     local party = AshitaCore:GetMemoryManager():GetParty();
@@ -380,14 +380,20 @@ partyList.DrawWindow = function(settings, userSettings)
 		return;
 	end
 	local currJob = player:GetMainJob();
-    if (player.isZoning or currJob == 0 or (not userSettings.showPartyListWhenSolo and party:GetMemberIsActive(1) == 0)) then
+    if (player.isZoning or currJob == 0 or (not gConfig.showPartyListWhenSolo and party:GetMemberIsActive(1) == 0)) then
 		UpdateTextVisibility(false);
         return;
 	end
 
-    if (imgui.Begin('PartyList', true, bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_NoNav, ImGuiWindowFlags_NoBackground))) then
+    local windowFlags = bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_NoNav, ImGuiWindowFlags_NoBackground, ImGuiWindowFlags_NoBringToFrontOnFocus);
+    if (gConfig.lockPositions) then
+        windowFlags = bit.bor(windowFlags, ImGuiWindowFlags_NoMove);
+    end
+    -- Remove all padding and start our window
+    imgui.PushStyleVar(ImGuiStyleVar_FramePadding, {0,0});
+    imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, {settings.barSpacing,0});
+    if (imgui.Begin('PartyList', true, windowFlags)) then
         local nameSize = SIZE.new();
-        local hpSize = SIZE.new();
         memberText[0].name:GetTextSize(nameSize);
         memberText[0].hp:GetTextSize(hpSize);
         imgui.Dummy({0, settings.nameTextOffsetY + nameSize.cy});
@@ -395,31 +401,26 @@ partyList.DrawWindow = function(settings, userSettings)
         if userSettings.partyListReversed then
             memOffset = GetMemberOffset();
         end
+        local offsetSize = nameSize.cy > settings.iconSize and nameSize.cy or settings.iconSize;
+        imgui.Dummy({0, settings.nameTextOffsetY + offsetSize});
         if (fullMenuSizeX ~= nil and fullMenuSizeY ~= nil) then
             local unitSize = 60;
             backgroundPrim.visible = false;
             local imguiPosX, imguiPosY = imgui.GetWindowPos();
             backgroundPrim.position_x = imguiPosX - settings.backgroundPaddingX1;
-            backgroundPrim.position_y = imguiPosY + (memOffset * unitSize) - settings.backgroundPaddingY1;
-            backgroundPrim.scale_x = (fullMenuSizeX + settings.backgroundPaddingX1 + settings.backgroundPaddingX2) / 280;
-            backgroundPrim.scale_y = (fullMenuSizeY - (memOffset * unitSize) - settings.entrySpacing + settings.backgroundPaddingY1 + settings.backgroundPaddingY2 - (settings.nameTextOffsetY + nameSize.cy)) / 384;
+            -- backgroundPrim.position_y = imguiPosY + (memOffset * unitSize) - settings.backgroundPaddingY1;
+            -- backgroundPrim.scale_x = (fullMenuSizeX + settings.backgroundPaddingX1 + settings.backgroundPaddingX2) / 280;
+            -- backgroundPrim.scale_y = (fullMenuSizeY - (memOffset * unitSize) - settings.entrySpacing + settings.backgroundPaddingY1 + settings.backgroundPaddingY2 - (settings.nameTextOffsetY + nameSize.cy)) / 384;
+            backgroundPrim.position_y = imguiPosY - settings.backgroundPaddingY1;
+            backgroundPrim.scale_x = (fullMenuSizeX + settings.backgroundPaddingX1 + settings.backgroundPaddingX2) / 512;
+            backgroundPrim.scale_y = (fullMenuSizeY - settings.entrySpacing + settings.backgroundPaddingY1 + settings.backgroundPaddingY2 - (settings.nameTextOffsetY + offsetSize)) / 512;
         end
         partyTargeted = false;
         partySubTargeted = false;
         UpdateTextVisibility(true);
-        -- if userSettings.partyListReversed then
-        --     for i = 5, memOffset do
-        --         DrawMember(i, settings, userSettings);
-        --     end
-        --     local partyCount = 6 - memOffset
-        --     for i = 0, partyCount - 1 do
-        --         DrawMember(i, settings, userSettings);
-        --     end
-        -- else
-            for i = 0, 5 do
-                DrawMember(i, settings, userSettings);
-            end
-        -- end
+        for i = 0, 5 do
+            DrawMember(i, settings, userSettings);
+        end
         if (partyTargeted == false) then
             selectionPrim.visible = false;
         end
@@ -430,6 +431,7 @@ partyList.DrawWindow = function(settings, userSettings)
 
     fullMenuSizeX, fullMenuSizeY = imgui.GetWindowSize();
 	imgui.End();
+    imgui.PopStyleVar(2);  
 end
 
 
@@ -443,20 +445,24 @@ partyList.Initialize = function(settings)
         memberText[i].tp = fonts.new(settings.tp_font_settings);
     end
     
-    backgroundPrim = primitives:new(settings.primData);
-    backgroundPrim.color = 0xFFFFFFFF;
-    backgroundPrim.texture = string.format('%s/assets/plist_bg.png', addon.path);
+    backgroundPrim = primitives:new(settings.prim_data);
+    backgroundPrim.color = tonumber(string.format('%02x%02x%02x%02x', gConfig.partyListBgOpacity, 255, 255, 255), 16);
+
+    backgroundPrim.texture = string.format('%s/assets/backgrounds/'..gConfig.partyListBackground, addon.path);
     backgroundPrim.visible = false;
+    backgroundPrim.can_focus = false;
 
-    selectionPrim = primitives.new(settings.primData);
+    selectionPrim = primitives.new(settings.prim_data);
     selectionPrim.color = 0xFFFFFFFF;
-    selectionPrim.texture = string.format('%s/assets/Cursor.png', addon.path);
+    selectionPrim.texture = string.format('%s/assets/Selector.png', addon.path);
     selectionPrim.visible = false;
+    selectionPrim.can_focus = false;
 
-    arrowPrim = primitives.new(settings.primData);
+    arrowPrim = primitives.new(settings.prim_data);
     arrowPrim.color = 0xFFFFFFFF;
-    arrowPrim.texture = string.format('%s/assets/CursorArrow.png', addon.path);
+    arrowPrim.texture = string.format('%s/assets/cursors/'..gConfig.partyListCursor, addon.path);
     arrowPrim.visible = false;
+    arrowPrim.can_focus = false;
 end
 
 partyList.UpdateFonts = function(settings)
@@ -467,6 +473,9 @@ partyList.UpdateFonts = function(settings)
         memberText[i].mp:SetFontHeight(settings.mp_font_settings.font_height);
         memberText[i].tp:SetFontHeight(settings.tp_font_settings.font_height);
     end
+    backgroundPrim.color = tonumber(string.format('%02x%02x%02x%02x', gConfig.partyListBgOpacity, 255, 255, 255), 16);
+    backgroundPrim.texture = string.format('%s/assets/backgrounds/'..gConfig.partyListBackground, addon.path);
+    arrowPrim.texture = string.format('%s/assets/cursors/'..gConfig.partyListCursor, addon.path);
 end
 
 partyList.SetHidden = function(hidden)

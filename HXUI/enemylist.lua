@@ -3,6 +3,7 @@ require('helpers');
 local imgui = require('imgui');
 local debuffHandler = require('debuffhandler');
 local statusHandler = require('statushandler');
+local progressbar = require('progressbar');
 
 -- TODO: Calculate these instead of manually setting them
 local bgAlpha = 0.4;
@@ -21,7 +22,7 @@ local function GetIsValidMob(mobIdx)
 end
 
 local function GetPartyMemberIds()
-	local partyMemberIds = {};
+	local partyMemberIds = T{};
 	local party = AshitaCore:GetMemoryManager():GetParty();
 	for i = 0, 17 do
 		if (party:GetMemberIsActive(i) == 1) then
@@ -31,11 +32,15 @@ local function GetPartyMemberIds()
 	return partyMemberIds;
 end
 
-enemylist.DrawWindow = function(settings, userSettings)
+enemylist.DrawWindow = function(settings)
 
 	imgui.SetNextWindowSize({ settings.barWidth, -1, }, ImGuiCond_Always);
 	-- Draw the main target window
-	if (imgui.Begin('EnemyList', true, bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_NoNav, ImGuiWindowFlags_NoBackground))) then
+	local windowFlags = bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_NoNav, ImGuiWindowFlags_NoBackground, ImGuiWindowFlags_NoBringToFrontOnFocus);
+	if (gConfig.lockPositions) then
+		windowFlags = bit.bor(windowFlags, ImGuiWindowFlags_NoMove);
+	end
+	if (imgui.Begin('EnemyList', true, windowFlags)) then
 		imgui.SetWindowFontScale(settings.textScale);
 		local winStartX, winStartY = imgui.GetWindowPos();
 		local playerTarget = AshitaCore:GetMemoryManager():GetTarget();
@@ -60,9 +65,7 @@ enemylist.DrawWindow = function(settings, userSettings)
 				local targetNameText = ent.Name;
 				if (targetNameText ~= nil) then
 
-					local color = GetColorOfTarget(ent, k);
-					local y, _  = imgui.CalcTextSize(targetNameText);
-
+					local color = GetColorOfTargetRGBA(ent, k);
 					imgui.Dummy({0,settings.entrySpacing});
 					local rectLength = imgui.GetColumnWidth() + imgui.GetStyle().FramePadding.x;
 					
@@ -71,7 +74,7 @@ enemylist.DrawWindow = function(settings, userSettings)
 
 					-- Figure out sizing on the background
 					local cornerOffset = settings.bgTopPadding;
-					local xDist, yDist = imgui.CalcTextSize(targetNameText);
+					local _, yDist = imgui.CalcTextSize(targetNameText);
 					if (yDist > settings.barHeight) then
 						yDist = yDist + yDist;
 					else
@@ -109,13 +112,14 @@ enemylist.DrawWindow = function(settings, userSettings)
 					imgui.Text(percentText);
 					imgui.SameLine();
 					imgui.SetCursorPosX(imgui.GetCursorPosX() - 3);
-					imgui.ProgressBar(ent.HPPercent / 100, { -1, settings.barHeight}, '');
+					-- imgui.ProgressBar(ent.HPPercent / 100, { -1, settings.barHeight}, '');
+					progressbar.ProgressBar({{ent.HPPercent / 100, {'#e16c6c', '#fb9494'}}}, {-1, settings.barHeight}, {decorate = gConfig.showEnemyListBookends});
 					imgui.SameLine();
 
 					imgui.Separator();
 
 					numTargets = numTargets + 1;
-					if (numTargets >= userSettings.maxEnemyListEntries) then
+					if (numTargets >= gConfig.maxEnemyListEntries) then
 						break;
 					end
 				end
@@ -135,7 +139,7 @@ enemylist.HandleActionPacket = function(e)
 	if (GetIsMobByIndex(e.UserIndex) and GetIsValidMob(e.UserIndex)) then
 		local partyMemberIds = GetPartyMemberIds();
 		for i = 0, #e.Targets do
-			if (e.Targets[i] ~= nil and has_value(partyMemberIds, e.Targets[i].Id)) then
+			if (e.Targets[i] ~= nil and (partyMemberIds:contains(e.Targets[i].Id))) then
 				allClaimedTargets[e.UserIndex] = 1;
 			end
 		end
@@ -149,7 +153,7 @@ enemylist.HandleMobUpdatePacket = function(e)
 	end
 	if (e.newClaimId ~= nil and GetIsValidMob(e.monsterIndex)) then	
 		local partyMemberIds = GetPartyMemberIds();
-		if (has_value(partyMemberIds, e.newClaimId)) then
+		if ((partyMemberIds:contains(e.newClaimId))) then
 			allClaimedTargets[e.monsterIndex] = 1;
 		end
 	end
