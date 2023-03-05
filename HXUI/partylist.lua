@@ -393,7 +393,10 @@ partyList.DrawWindow = function(settings)
             backgroundPrim.visible = true;
             local imguiPosX, imguiPosY = imgui.GetWindowPos();
             backgroundPrim.position_x = imguiPosX - settings.backgroundPaddingX1;
-            local heightOffset = (GetMemberOffset() + 1) * memberHeight;
+            local heightOffset = 0;
+            if gConfig.partyListReversed then
+                heightOffset = (GetMemberOffset() + 1) * memberHeight;
+            end
             backgroundPrim.position_y = imguiPosY - settings.backgroundPaddingY1 + heightOffset;
             backgroundPrim.scale_x = (fullMenuSizeX + settings.backgroundPaddingX1 + settings.backgroundPaddingX2) / 512;
             backgroundPrim.scale_y = (fullMenuSizeY - heightOffset - settings.entrySpacing + settings.backgroundPaddingY1 + settings.backgroundPaddingY2 - (settings.nameTextOffsetY + offsetSize)) / 512;
